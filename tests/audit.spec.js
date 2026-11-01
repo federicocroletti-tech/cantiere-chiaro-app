@@ -66,3 +66,47 @@ test('la checklist aggiorna il progresso e il diario salva le note', async ({ pa
   ]);
   await expect(download.suggestedFilename()).toMatch(/diario-lavori-/);
 });
+
+test('i progressi non validi salvati vengono ignorati', async ({ page }) => {
+  await page.addInitScript(() => {
+    localStorage.setItem('cantiere-chiaro-demo-v1', JSON.stringify({
+      0: [0, 0, 99],
+      99: [0],
+      1: 'non-array'
+    }));
+  });
+  await page.goto('/');
+
+  await expect(page.locator('#progress-value')).toHaveText('6');
+  await expect(page.locator('#progress-status')).toContainText('solo in questo browser');
+});
+
+test('annullare il reset conserva i progressi; confermarlo li azzera', async ({ page }) => {
+  await page.goto('/');
+  await page.locator('[data-task="0"]').check();
+  await expect(page.locator('#progress-value')).not.toHaveText('0');
+
+  page.once('dialog', dialog => dialog.dismiss());
+  await page.locator('#reset-button').click();
+  await expect(page.locator('#progress-value')).not.toHaveText('0');
+
+  page.once('dialog', dialog => dialog.accept());
+  await page.locator('#reset-button').click();
+  await expect(page.locator('#progress-value')).toHaveText('0');
+});
+
+test('un errore di archiviazione non mostra progressi non salvati come completati', async ({ page }) => {
+  await page.addInitScript(() => {
+    const originalSetItem = Storage.prototype.setItem;
+    Storage.prototype.setItem = function (key, value) {
+      if (key === 'cantiere-chiaro-demo-v1') throw new DOMException('Storage full', 'QuotaExceededError');
+      return originalSetItem.call(this, key, value);
+    };
+  });
+  await page.goto('/');
+  await page.locator('[data-task="0"]').click();
+
+  await expect(page.locator('#progress-value')).toHaveText('0');
+  await expect(page.locator('#progress-status')).toContainText('Salvataggio non riuscito');
+  await expect(page.locator('[data-task="0"]')).not.toBeChecked();
+});
