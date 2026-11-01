@@ -111,7 +111,27 @@ let diaryEntries = loadDiary();
 function loadProgress() {
   try {
     const saved = JSON.parse(localStorage.getItem(storageKey) || "{}");
-    return saved && typeof saved === "object" && !Array.isArray(saved) ? saved : {};
+    if (!saved || typeof saved !== "object" || Array.isArray(saved)) {
+      throw new TypeError("Il progresso salvato non ha il formato previsto.");
+    }
+
+    const valid = {};
+    let hasInvalidProgress = false;
+    for (const [phaseKey, taskIndexes] of Object.entries(saved)) {
+      const phaseIndex = Number(phaseKey);
+      if (!Number.isInteger(phaseIndex) || phaseIndex < 0 || phaseIndex >= phases.length || !Array.isArray(taskIndexes)) {
+        hasInvalidProgress = true;
+        continue;
+      }
+
+      const validIndexes = [...new Set(taskIndexes.filter(index =>
+        Number.isInteger(index) && index >= 0 && index < phases[phaseIndex].tasks.length
+      ))].sort((a, b) => a - b);
+      if (validIndexes.length !== taskIndexes.length) hasInvalidProgress = true;
+      if (validIndexes.length) valid[phaseIndex] = validIndexes;
+    }
+    if (hasInvalidProgress) console.warn("Alcuni progressi salvati non sono validi e non verranno mostrati.");
+    return valid;
   } catch (error) {
     console.warn("Impossibile leggere i progressi salvati per questa demo.", error);
     return {};
@@ -121,9 +141,20 @@ function loadProgress() {
 function saveProgress() {
   try {
     localStorage.setItem(storageKey, JSON.stringify(completed));
+    setProgressStatus("Progressi salvati in questo browser.");
+    return true;
   } catch (error) {
     console.warn("Impossibile salvare i progressi nel browser.", error);
+    setProgressStatus("Salvataggio non riuscito: i progressi modificati non sono stati conservati.", true);
+    return false;
   }
+}
+
+function setProgressStatus(message, isError = false) {
+  const status = document.querySelector("#progress-status");
+  if (!status) return;
+  status.textContent = message;
+  status.classList.toggle("error", isError);
 }
 
 function loadDiary() {
@@ -306,12 +337,13 @@ phaseList.addEventListener("keydown", event => {
 phaseDetail.addEventListener("change", event => {
   const checkbox = event.target.closest("[data-task]");
   if (!checkbox) return;
+  const previous = { ...completed };
   const taskIndex = Number(checkbox.dataset.task);
   const phaseProgress = new Set(completedForPhase(activePhase));
   if (checkbox.checked) phaseProgress.add(taskIndex);
   else phaseProgress.delete(taskIndex);
   completed[activePhase] = [...phaseProgress].sort((a, b) => a - b);
-  saveProgress();
+  if (!saveProgress()) completed = previous;
   render();
 });
 
@@ -326,8 +358,10 @@ document.querySelector("#next-action").addEventListener("click", event => {
 });
 
 document.querySelector("#reset-button").addEventListener("click", () => {
+  if (!window.confirm("Vuoi azzerare tutti i passaggi completati? Questa operazione non si può annullare.")) return;
+  const previous = completed;
   completed = {};
-  saveProgress();
+  if (!saveProgress()) completed = previous;
   render();
 });
 

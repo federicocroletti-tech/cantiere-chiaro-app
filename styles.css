@@ -98,6 +98,8 @@ h1 span { color: var(--green); }
 .progress-track span { display: block; width: 0; height: 100%; border-radius: inherit; background: #689175; transition: width .3s ease; }
 .progress-foot { display: flex; justify-content: space-between; align-items: center; margin-top: 10px; color: #8c928b; font-size: 8px; }
 .progress-foot b { color: #4a544b; font-weight: 600; }
+.progress-status { margin: 7px 0 0; color: #68746b; font-size: 9px; line-height: 1.4; }
+.progress-status.error { color: #a53d32; }
 .text-button { padding: 0; border: 0; color: #7e8d7e; background: none; cursor: pointer; font-size: 8px; text-decoration: underline; text-underline-offset: 2px; }
 .text-button:hover { color: var(--green); }
 .step-index { color: #46694e; font-family: Manrope, sans-serif; font-size: 11px; letter-spacing: -.2px; font-weight: 700; }
